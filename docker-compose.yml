@@ -1,9 +1,17 @@
 version: '3.8'
 
 services:
+  nginx:
+    build: ./nginx
+    volumes:
+      - ./app/:/usr/src/app/
+    ports:
+      - "80:80"
+    depends_on:
+      - web
   web:
     build: app
-    command: python manage.py runserver 0.0.0.0:8000
+    command: gunicorn --workers=4 project.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - ./app/:/usr/src/app/
     ports:
@@ -20,6 +28,8 @@ services:
         - POSTGRES_USER=my_proj
         - POSTGRES_PASSWORD=my_proj
         - POSTGRES_DB=my_proj_dev
+  redis:
+    image: redis:latest
 
 volumes:
   postgres_data:

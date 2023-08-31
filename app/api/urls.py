@@ -1,11 +1,7 @@
-from django.urls import path, include
-from rest_framework import routers
-from .views import BookmarkViewSet, CollectionViewSet
+from django.urls import path
 
-router = routers.DefaultRouter()
-router.register(r'bookmarks', BookmarkViewSet)
-router.register(r'collections', CollectionViewSet)
+from . import views
 
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path('deals/', views.DealCreateView.as_view(), name='deals'),
 ]

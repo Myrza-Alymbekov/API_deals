@@ -3,5 +3,5 @@ drf-yasg
 coreapi
 django-cors-headers
 psycopg2-binary
-beautifulsoup4
-requests
+django-redis
+gunicorn

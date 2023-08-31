@@ -1,40 +1,46 @@
-from rest_framework import viewsets, status, mixins
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .functions import get_page_info
-from .models import Bookmark, Collection
-from .permissions import IsStaffOrOwnerPermission
-from .serializers import BookmarkSerializer, CollectionSerializer
-
-
-class BookmarkViewSet(mixins.CreateModelMixin,
-                      mixins.ListModelMixin,
-                      mixins.RetrieveModelMixin,
-                      mixins.DestroyModelMixin,
-                      viewsets.GenericViewSet):
-    """
-    API для создания, просмотра и удаления закладок.
-    """
-    queryset = Bookmark.objects.all()
-    serializer_class = BookmarkSerializer
-    permission_classes = [IsStaffOrOwnerPermission]
-
-    def perform_create(self, serializer):
-        page_info = get_page_info(serializer.validated_data.get('link'))
-        serializer.save(title=page_info.get('title'),
-                        description=page_info.get('description'),
-                        type=page_info.get('type'),
-                        preview_image=page_info.get('preview_image'),
-                        user=self.request.user)
+from .functions import read_and_save_deals, get_info_about_top_customers
+from .serializers import DealFileSerializer
 
 
-class CollectionViewSet(viewsets.ModelViewSet):
-    """
-        API для создания, просмотра, редактирования и удаления коллекций.
-    """
-    queryset = Collection.objects.all()
-    serializer_class = CollectionSerializer
-    permission_classes = [IsStaffOrOwnerPermission]
+class DealCreateView(APIView):
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    @method_decorator(cache_page(60*60))
+    def get(self, request, *args, **kwargs):
+        """
+            API для получения информации о 5 клиентах,
+            потративших наибольшую сумму за весь период.
+        """
+        response = get_info_about_top_customers()
+        return Response({'response': response})
+
+    def post(self, request, *args, **kwargs):
+        """
+            API для сохранения информации о совершенных сделках с csv-файла.
+        """
+        serializer = DealFileSerializer(data=request.data)
+        if serializer.is_valid():
+            file = serializer.validated_data['file']
+            try:
+                read_and_save_deals(file=file)
+            except Exception as e:
+                return Response(
+                    {
+                        'Status': 'Error',
+                        'Desc': f'{str(e)} - в процессе обработки файла произошла ошибка',
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            else:
+                cache.clear()
+                return Response(
+                    {'Status': 'OK - файл был обработан без ошибок'},
+                    status=status.HTTP_200_OK,
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

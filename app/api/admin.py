@@ -1,17 +1,12 @@
 from django.contrib import admin
-from .models import Bookmark, Collection, BookmarkType
+from .models import Customer, Gem, Deal
 
 
-@admin.register(Bookmark)
-class BookmarkAdmin(admin.ModelAdmin):
-    list_display = ('title', 'user', 'created_at', 'updated_at')
-    search_fields = ('title', 'user__username')
+admin.site.register(Gem)
+admin.site.register(Customer)
 
 
-@admin.register(Collection)
-class CollectionAdmin(admin.ModelAdmin):
-    list_display = ('title', 'user', 'created_at', 'updated_at')
-    search_fields = ('title', 'user__username')
-
-
-admin.site.register(BookmarkType)
+@admin.register(Deal)
+class DealAdmin(admin.ModelAdmin):
+    list_display = ('customer', 'gem', 'total', 'quantity', 'date')
+    search_fields = ('gem__name', 'customer__username')

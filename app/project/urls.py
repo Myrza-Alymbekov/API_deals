@@ -9,9 +9,9 @@ schema_view = get_schema_view(
    openapi.Info(
       title="Test API",
       default_version='v-0.01',
-      description="API для взаимодействия с Test API",
+      description="API",
       terms_of_service="https://www.google.com/policies/terms/",
-      contact=openapi.Contact(email="takhirmiracles@gmail.com"),
+      contact=openapi.Contact(email="myrza.bakytbekovich@gmail.com"),
       license=openapi.License(name="No License"),
    ),
    public=True,
@@ -20,8 +20,6 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api-auth/', include('rest_framework.urls')),
-    path('', include('users.urls')),
     path('', include('api.urls')),
 
     # documentation URL

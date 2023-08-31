@@ -1,41 +1,60 @@
-from django.shortcuts import render
-from django.http import JsonResponse
-import requests
-from bs4 import BeautifulSoup
+from django.db import transaction
+from django.db.models import Sum
 
-from .models import BookmarkType
+from .models import Customer, Gem, Deal
 
 
-def get_page_info(url: str) -> dict:
+@transaction.atomic
+def read_and_save_deals(file):
     """
-    Функция для получения информации со страницы,
-    загруженной с переданной ссылки.
-    :param url: str. Ссылка
-    :return: dict. Возвращается словарь, где названия ключей
-     соответствуют полям модели models.Bookmark,
-     а значения - заполняемым данным.
+    Функция для получения информации о совершенных сделках с csv-файла
+    и записи в БД.
+
+    В случае, если на каком-то этапе выполнения функции произойдет ошибка,
+    все объекты вернутся к исходному (до выполнения функции) состоянию.
+
     """
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+    deal_list = []
+    for line in file.readlines():
+        row = line.decode('utf-8').strip()
+        customer, item, total, quantity, date = row.split(',')
+        if customer == 'customer' and item == 'item' and total == 'total':
+            continue
+        customer, _ = Customer.objects.get_or_create(username=customer)
+        gem, _ = Gem.objects.get_or_create(name=item)
+        deal_list.append(Deal(customer=customer,
+                              gem=gem,
+                              total=total,
+                              quantity=quantity,
+                              date=date))
+    Deal.objects.bulk_create(deal_list)
 
-    og_title = soup.find('meta', property='og:title')
-    og_description = soup.find('meta', property='og:description')
-    og_type = soup.find('meta', property='og:type')
-    og_image = soup.find('meta', property='og:image')
 
-    if og_title:
-        title = og_title['content']
-    else:
-        title = soup.find('title').get_text() if soup.find('title') else ''
+def get_info_about_top_customers():
+    """
+        Функция для получения информации о 5 клиентах,
+        потративших наибольшую сумму за весь период.
+        """
+    top_customers = Customer.objects.annotate(
+        spent_money=Sum('deal__total')
+    ).order_by('-spent_money')[:5]
 
-    description = og_description['content'] if og_description else ''
-    type = og_type['content'] if og_type else ''
-    type = BookmarkType.objects.get(name=type) if type else BookmarkType.objects.get(name='website')
-    image_url = og_image['content'] if og_image else ''
+    gems_bought_by_top_customers = Gem.objects.filter(
+        deal__customer__in=top_customers
+    ).distinct()
 
-    return {
-        'title': title,
-        'description': description,
-        'type': type,
-        'preview_image': image_url,
-    }
+    response_data = []
+    for customer in top_customers:
+        other_top_customers = Customer.objects.filter(
+            id__in=[cust.id for cust in top_customers if cust != customer])
+        gems_bought = list(
+            gems_bought_by_top_customers.filter(deal__customer=customer)
+            .filter(deal__customer__in=other_top_customers)
+            .values_list('name', flat=True)
+        )
+        response_data.append({
+            'username': customer.username,
+            'spent_money': customer.spent_money,
+            'gems': gems_bought
+        })
+    return response_data

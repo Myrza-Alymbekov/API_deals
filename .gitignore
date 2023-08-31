@@ -1,6 +1,6 @@
 venv/
 .idea/
-../app/entrypoint.sh
+./app/entrypoint.sh
 db.sqlite3
 **/__pycache__/
 *.pyc
